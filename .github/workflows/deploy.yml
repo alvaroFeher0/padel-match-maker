@@ -1,17 +1,56 @@
-name: Force Deploy
+name: Deploy to GitHub Pages
+
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
-# THIS KILLS OLD JOBS IF A NEW ONE STARTS
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# ... (rest of the build/deploy jobs from before)
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: |
+          npm run build
+          cp dist/index.html dist/404.html
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
