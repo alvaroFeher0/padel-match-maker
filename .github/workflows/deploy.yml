@@ -1,0 +1,17 @@
+name: Force Deploy
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# THIS KILLS OLD JOBS IF A NEW ONE STARTS
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ... (rest of the build/deploy jobs from before)
