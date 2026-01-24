@@ -28,7 +28,7 @@ export interface Americana {
   currentRound: number;
   totalRounds: number;
   status: 'waiting' | 'playing' | 'finished';
-  createdAt: Date;
+  createdAt: string;
 }
 
 export type AmericanaView = 'home' | 'create' | 'join' | 'lobby' | 'tournament';

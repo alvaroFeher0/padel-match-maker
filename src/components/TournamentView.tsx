@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Americana } from '@/types/americana';
 import { MatchCard } from '@/components/MatchCard';
 import { StandingsTable } from '@/components/StandingsTable';
-import { generateRoundMatches, saveAmericana, getPlayerById } from '@/lib/americana';
+import { generateRoundMatches, saveAmericana } from '@/lib/americana';
 import { ArrowRight, Trophy, RotateCcw, ListOrdered } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -24,7 +24,7 @@ export const TournamentView = ({ americana, currentPlayerId, onUpdate, onReset }
   const isLastRound = americana.currentRound === americana.totalRounds;
   const isTournamentFinished = americana.status === 'finished';
 
-  const handleSetWinner = (matchId: string, winnerTeam: 1 | 2) => {
+  const handleSetWinner = async (matchId: string, winnerTeam: 1 | 2) => {
     const match = americana.matches.find(m => m.id === matchId);
     if (!match) return;
 
@@ -52,17 +52,31 @@ export const TournamentView = ({ americana, currentPlayerId, onUpdate, onReset }
       }
     });
 
-    saveAmericana(americana);
-    onUpdate({ ...americana });
-    toast.success('¡Resultado registrado!');
+    try {
+      await saveAmericana(americana);
+      onUpdate({ ...americana });
+      toast.success('¡Resultado registrado!');
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo guardar el resultado', {
+        description: 'Inténtalo de nuevo en unos segundos',
+      });
+    }
   };
 
-  const handleNextRound = () => {
+  const handleNextRound = async () => {
     if (isLastRound) {
       americana.status = 'finished';
-      saveAmericana(americana);
-      onUpdate({ ...americana });
-      toast.success('¡Torneo finalizado!');
+      try {
+        await saveAmericana(americana);
+        onUpdate({ ...americana });
+        toast.success('¡Torneo finalizado!');
+      } catch (error) {
+        console.error(error);
+        toast.error('No se pudo finalizar el torneo', {
+          description: 'Inténtalo de nuevo en unos segundos',
+        });
+      }
       return;
     }
 
@@ -71,9 +85,16 @@ export const TournamentView = ({ americana, currentPlayerId, onUpdate, onReset }
     americana.matches.push(...newMatches);
     americana.currentRound = newRound;
 
-    saveAmericana(americana);
-    onUpdate({ ...americana });
-    toast.success(`¡Ronda ${newRound} iniciada!`);
+    try {
+      await saveAmericana(americana);
+      onUpdate({ ...americana });
+      toast.success(`¡Ronda ${newRound} iniciada!`);
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo iniciar la ronda', {
+        description: 'Inténtalo de nuevo en unos segundos',
+      });
+    }
   };
 
   if (isTournamentFinished) {

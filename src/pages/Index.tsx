@@ -16,13 +16,17 @@ const Index = () => {
   // Poll for updates when in lobby (to see new players joining)
   useEffect(() => {
     if (view === 'lobby' && currentAmericana) {
-      const interval = setInterval(() => {
-        const updated = getAmericanaById(currentAmericana.id);
-        if (updated) {
-          setCurrentAmericana(updated);
-          if (updated.status === 'playing') {
-            setView('tournament');
+      const interval = setInterval(async () => {
+        try {
+          const updated = await getAmericanaById(currentAmericana.id);
+          if (updated) {
+            setCurrentAmericana(updated);
+            if (updated.status === 'playing') {
+              setView('tournament');
+            }
           }
+        } catch (error) {
+          console.error(error);
         }
       }, 2000);
       return () => clearInterval(interval);
@@ -41,7 +45,7 @@ const Index = () => {
     setView('lobby');
   };
 
-  const handleStartTournament = () => {
+  const handleStartTournament = async () => {
     if (!currentAmericana) return;
 
     const matches = generateRoundMatches(currentAmericana.players, 1);
@@ -49,7 +53,11 @@ const Index = () => {
     currentAmericana.currentRound = 1;
     currentAmericana.status = 'playing';
 
-    saveAmericana(currentAmericana);
+    try {
+      await saveAmericana(currentAmericana);
+    } catch (error) {
+      console.error(error);
+    }
     setCurrentAmericana({ ...currentAmericana });
     setView('tournament');
   };

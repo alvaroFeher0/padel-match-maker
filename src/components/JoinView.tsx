@@ -17,13 +17,15 @@ export const JoinView = ({ onBack, onJoined }: JoinViewProps) => {
   const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!code.trim() || !playerName.trim()) return;
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      const americana = getAmericanaByCode(code.trim());
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    try {
+      const americana = await getAmericanaByCode(code.trim());
 
       if (!americana) {
         toast.error('Código no encontrado', {
@@ -55,11 +57,17 @@ export const JoinView = ({ onBack, onJoined }: JoinViewProps) => {
 
       const player = createPlayer(playerName.trim());
       americana.players.push(player);
-      saveAmericana(americana);
+      await saveAmericana(americana);
 
       setIsLoading(false);
       onJoined(americana, player.id);
-    }, 500);
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo unirse', {
+        description: 'Inténtalo de nuevo en unos segundos',
+      });
+      setIsLoading(false);
+    }
   };
 
   return (

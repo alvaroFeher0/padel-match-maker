@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Rocket } from 'lucide-react';
 import { generateCode, generateId, createPlayer, saveAmericana } from '@/lib/americana';
 import { Americana } from '@/types/americana';
+import { toast } from 'sonner';
 
 interface CreateViewProps {
   onBack: () => void;
@@ -17,7 +18,7 @@ export const CreateView = ({ onBack, onCreated }: CreateViewProps) => {
   const [rounds, setRounds] = useState(4);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!tournamentName.trim() || !adminName.trim()) return;
 
     setIsLoading(true);
@@ -33,15 +34,22 @@ export const CreateView = ({ onBack, onCreated }: CreateViewProps) => {
       currentRound: 0,
       totalRounds: rounds,
       status: 'waiting',
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
     };
 
-    saveAmericana(americana);
-    
-    setTimeout(() => {
+    try {
+      await saveAmericana(americana);
+
+      await new Promise(resolve => setTimeout(resolve, 500));
       setIsLoading(false);
       onCreated(americana, admin.id);
-    }, 500);
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo crear el torneo', {
+        description: 'Inténtalo de nuevo en unos segundos',
+      });
+      setIsLoading(false);
+    }
   };
 
   return (

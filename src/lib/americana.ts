@@ -1,4 +1,7 @@
 import { Americana, Player, Match } from '@/types/americana';
+import { supabase } from '@/lib/supabase';
+
+const AMERICANAS_TABLE = 'americanas';
 
 export const generateCode = (): string => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -34,7 +37,7 @@ export const shuffleArray = <T>(array: T[]): T[] => {
 export const generateRoundMatches = (players: Player[], round: number): Match[] => {
   const shuffledPlayers = shuffleArray(players);
   const matches: Match[] = [];
-  
+
   // Create matches with 4 players each
   for (let i = 0; i < Math.floor(shuffledPlayers.length / 4); i++) {
     const matchPlayers = shuffledPlayers.slice(i * 4, (i + 1) * 4);
@@ -47,7 +50,7 @@ export const generateRoundMatches = (players: Player[], round: number): Match[] 
       completed: false,
     });
   }
-  
+
   return matches;
 };
 
@@ -68,28 +71,64 @@ export const calculateStandings = (players: Player[]): Player[] => {
   });
 };
 
-export const saveAmericana = (americana: Americana): void => {
-  const stored = getStoredAmericanas();
-  const index = stored.findIndex(a => a.id === americana.id);
-  if (index >= 0) {
-    stored[index] = americana;
-  } else {
-    stored.push(americana);
+type AmericanaRow = {
+  id: string;
+  code: string;
+  data: Americana;
+};
+
+export const saveAmericana = async (americana: Americana): Promise<void> => {
+  const payload: AmericanaRow = {
+    id: americana.id,
+    code: americana.code,
+    data: americana,
+  };
+
+  const { error } = await supabase
+    .from(AMERICANAS_TABLE)
+    .upsert(payload, { onConflict: 'id' });
+
+  if (error) {
+    throw error;
   }
-  localStorage.setItem('americanas', JSON.stringify(stored));
 };
 
-export const getStoredAmericanas = (): Americana[] => {
-  const stored = localStorage.getItem('americanas');
-  return stored ? JSON.parse(stored) : [];
+export const getStoredAmericanas = async (): Promise<Americana[]> => {
+  const { data, error } = await supabase
+    .from(AMERICANAS_TABLE)
+    .select('data');
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map(row => row.data as Americana);
 };
 
-export const getAmericanaByCode = (code: string): Americana | undefined => {
-  const stored = getStoredAmericanas();
-  return stored.find(a => a.code.toUpperCase() === code.toUpperCase());
+export const getAmericanaByCode = async (code: string): Promise<Americana | undefined> => {
+  const { data, error } = await supabase
+    .from(AMERICANAS_TABLE)
+    .select('data')
+    .eq('code', code.toUpperCase())
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.data as Americana | undefined;
 };
 
-export const getAmericanaById = (id: string): Americana | undefined => {
-  const stored = getStoredAmericanas();
-  return stored.find(a => a.id === id);
+export const getAmericanaById = async (id: string): Promise<Americana | undefined> => {
+  const { data, error } = await supabase
+    .from(AMERICANAS_TABLE)
+    .select('data')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.data as Americana | undefined;
 };
