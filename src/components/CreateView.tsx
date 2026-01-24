@@ -108,6 +108,27 @@ export const CreateView = ({ onBack, onCreated }: CreateViewProps) => {
           </div>
         </div>
 
+        {/* Player requirements info */}
+        <div className="bg-muted/50 rounded-xl p-4 space-y-2">
+          <p className="text-sm font-medium text-foreground">
+            Jugadores necesarios
+          </p>
+          <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+            <div className="flex justify-between">
+              <span>Mínimo:</span>
+              <span className="font-semibold text-foreground">4 jugadores</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Recomendado:</span>
+              <span className="font-semibold text-foreground">8 jugadores</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            💡 Los jugadores deben ser múltiplos de 4 (4, 8, 12, 16...). 
+            Con más jugadores, más variedad en los emparejamientos.
+          </p>
+        </div>
+
         <div className="flex-1" />
 
         <Button
