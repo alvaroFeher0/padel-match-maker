@@ -55,7 +55,6 @@ export const TournamentView = ({ americana, currentPlayerId, onUpdate, onReset }
     try {
       await saveAmericana(americana);
       onUpdate({ ...americana });
-      toast.success('¡Resultado registrado!');
       console.log('Match updated:', match);
     } catch (error) {
       console.error(error);
