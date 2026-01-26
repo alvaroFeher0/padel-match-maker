@@ -56,6 +56,7 @@ export const TournamentView = ({ americana, currentPlayerId, onUpdate, onReset }
       await saveAmericana(americana);
       onUpdate({ ...americana });
       toast.success('¡Resultado registrado!');
+      console.log('Match updated:', match);
     } catch (error) {
       console.error(error);
       toast.error('No se pudo guardar el resultado', {
@@ -88,6 +89,7 @@ export const TournamentView = ({ americana, currentPlayerId, onUpdate, onReset }
     try {
       await saveAmericana(americana);
       onUpdate({ ...americana });
+      console.log('New round matches generated:', newMatches);
       toast.success(`¡Ronda ${newRound} iniciada!`);
     } catch (error) {
       console.error(error);

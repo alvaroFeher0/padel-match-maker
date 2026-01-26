@@ -7,31 +7,46 @@ import { LobbyView } from '@/components/LobbyView';
 import { TournamentView } from '@/components/TournamentView';
 import { Americana, AmericanaView } from '@/types/americana';
 import { generateRoundMatches, saveAmericana, getAmericanaById } from '@/lib/americana';
+import { supabase } from '@/lib/supabase';
 
 const Index = () => {
   const [view, setView] = useState<AmericanaView>('home');
   const [currentAmericana, setCurrentAmericana] = useState<Americana | null>(null);
   const [currentPlayerId, setCurrentPlayerId] = useState<string>('');
 
-  // Poll for updates when in lobby (to see new players joining)
   useEffect(() => {
-    if (view === 'lobby' && currentAmericana) {
-      const interval = setInterval(async () => {
-        try {
-          const updated = await getAmericanaById(currentAmericana.id);
-          if (updated) {
-            setCurrentAmericana(updated);
-            if (updated.status === 'playing') {
-              setView('tournament');
+    if (!currentAmericana) return;
+
+    const channel = supabase
+      .channel(`americana:${currentAmericana.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'americanas',
+          filter: `id=eq.${currentAmericana.id}`,
+        },
+        async () => {
+          try {
+            const updated = await getAmericanaById(currentAmericana.id);
+            if (updated) {
+              setCurrentAmericana(updated);
+              if (updated.status === 'playing') {
+                setView('tournament');
+              }
             }
+          } catch (error) {
+            console.error(error);
           }
-        } catch (error) {
-          console.error(error);
         }
-      }, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [view, currentAmericana?.id]);
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentAmericana?.id]);
 
   const handleCreated = (americana: Americana, playerId: string) => {
     setCurrentAmericana(americana);

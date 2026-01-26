@@ -34,6 +34,18 @@ export const shuffleArray = <T>(array: T[]): T[] => {
   return shuffled;
 };
 
+
+export const generateRoundRobinMatches = (players: Player[], round: number): Match[] => {
+  const matches: Match[] = [];
+  for(let i =0; i < players.length; i++) {
+    for(let j = i +1; j < players.length; j++) {
+      let match = {player[i].id, player[j].id};
+      if(){}
+    }
+  }
+return matches;
+};
+
 export const generateRoundMatches = (players: Player[], round: number): Match[] => {
   const shuffledPlayers = shuffleArray(players);
   const matches: Match[] = [];
@@ -53,6 +65,7 @@ export const generateRoundMatches = (players: Player[], round: number): Match[] 
 
   return matches;
 };
+
 
 export const getPlayerById = (players: Player[], id: string): Player | undefined => {
   return players.find(p => p.id === id);
