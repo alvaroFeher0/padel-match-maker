@@ -62,87 +62,61 @@ const opponentCounts = (matches: Match[]) =>
     [m.team1[1], m.team2[1]],
   ]);
 
-// Greedy pairing with random restarts. For each shuffle, pair players by picking
-// the partner with the lowest prior-partnership count. Keep the lowest-cost result.
+// Optimal perfect matching via branch-and-bound backtracking.
+// `units` are paired up (size must be even); `cost(a, b)` returns the cost of
+// pairing units a and b. Returns the lowest-cost partition.
+const findBestMatching = <T>(
+  units: T[],
+  cost: (a: T, b: T) => number,
+): [T, T][] => {
+  let bestCost = Infinity;
+  let bestPairs: [T, T][] = [];
+  const current: [T, T][] = [];
+
+  const search = (remaining: T[], runningCost: number): void => {
+    if (runningCost >= bestCost) return;
+    if (remaining.length === 0) {
+      bestCost = runningCost;
+      bestPairs = [...current];
+      return;
+    }
+    const [first, ...rest] = remaining;
+    // Sort candidates by cost ascending so the most promising branches go first;
+    // combined with the bestCost prune below this keeps the search tiny.
+    const ranked = rest
+      .map((u, i) => ({ u, i, c: cost(first, u) }))
+      .sort((a, b) => a.c - b.c);
+
+    for (const { u, i, c } of ranked) {
+      if (runningCost + c >= bestCost) break;
+      const next = rest.slice(0, i).concat(rest.slice(i + 1));
+      current.push([first, u]);
+      search(next, runningCost + c);
+      current.pop();
+      if (bestCost === 0) return;
+    }
+  };
+
+  search(shuffleArray(units), 0);
+  return bestPairs;
+};
+
 const buildPairs = (
   playerIds: string[],
   prior: Map<string, number>,
-  attempts = 400,
-): [string, string][] => {
-  let best: { pairs: [string, string][]; cost: number } | null = null;
+): [string, string][] =>
+  findBestMatching(playerIds, (a, b) => prior.get(pairKey(a, b)) ?? 0);
 
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    const pool = shuffleArray(playerIds);
-    const pairs: [string, string][] = [];
-    let cost = 0;
-
-    while (pool.length >= 2) {
-      const a = pool.shift()!;
-      let bestIdx = 0;
-      let bestCost = Infinity;
-      for (let i = 0; i < pool.length; i++) {
-        const c = prior.get(pairKey(a, pool[i])) ?? 0;
-        if (c < bestCost) {
-          bestCost = c;
-          bestIdx = i;
-        }
-      }
-      const b = pool.splice(bestIdx, 1)[0];
-      pairs.push([a, b]);
-      cost += bestCost;
-    }
-
-    if (!best || cost < best.cost) {
-      best = { pairs, cost };
-      if (cost === 0) break;
-    }
-  }
-
-  return best!.pairs;
-};
-
-// Pair the pairs into matches by minimising opponent-repetition cost.
 const buildMatchups = (
   pairs: [string, string][],
   prior: Map<string, number>,
-  attempts = 400,
-): [[string, string], [string, string]][] => {
-  let best: { matchups: [[string, string], [string, string]][]; cost: number } | null = null;
-
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    const pool = shuffleArray(pairs);
-    const matchups: [[string, string], [string, string]][] = [];
-    let cost = 0;
-
-    while (pool.length >= 2) {
-      const p1 = pool.shift()!;
-      let bestIdx = 0;
-      let bestCost = Infinity;
-      for (let i = 0; i < pool.length; i++) {
-        const p2 = pool[i];
-        const c =
-          (prior.get(pairKey(p1[0], p2[0])) ?? 0) +
-          (prior.get(pairKey(p1[0], p2[1])) ?? 0) +
-          (prior.get(pairKey(p1[1], p2[0])) ?? 0) +
-          (prior.get(pairKey(p1[1], p2[1])) ?? 0);
-        if (c < bestCost) {
-          bestCost = c;
-          bestIdx = i;
-        }
-      }
-      const p2 = pool.splice(bestIdx, 1)[0];
-      matchups.push([p1, p2]);
-      cost += bestCost;
-    }
-
-    if (!best || cost < best.cost) {
-      best = { matchups, cost };
-      if (cost === 0) break;
-    }
-  }
-
-  return best!.matchups;
-};
+): [[string, string], [string, string]][] =>
+  findBestMatching(pairs, (p1, p2) =>
+    (prior.get(pairKey(p1[0], p2[0])) ?? 0) +
+    (prior.get(pairKey(p1[0], p2[1])) ?? 0) +
+    (prior.get(pairKey(p1[1], p2[0])) ?? 0) +
+    (prior.get(pairKey(p1[1], p2[1])) ?? 0),
+  );
 
 // Pick which players sit out this round when the count isn't a multiple of 4.
 // Rotate so everyone sits out roughly the same number of times.
