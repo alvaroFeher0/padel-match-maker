@@ -81,7 +81,7 @@ export const TournamentView = ({ americana, currentPlayerId, onUpdate, onReset }
     }
 
     const newRound = americana.currentRound + 1;
-    const newMatches = generateRoundMatches(americana.players, newRound);
+    const newMatches = generateRoundMatches(americana.players, newRound, americana.matches);
     americana.matches.push(...newMatches);
     americana.currentRound = newRound;
 

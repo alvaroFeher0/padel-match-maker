@@ -35,35 +35,164 @@ export const shuffleArray = <T>(array: T[]): T[] => {
 };
 
 
-// export const generateRoundRobinMatches = (players: Player[], round: number): Match[] => {
-//   const matches: Match[] = [];
-//   for(let i =0; i < players.length; i++) {
-//     for(let j = i +1; j < players.length; j++) {
-//       let match = {player[i].id, player[j].id};
-//       if(){}
-//     }
-//   }
-// return matches;
-// };
+const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
-export const generateRoundMatches = (players: Player[], round: number): Match[] => {
-  const shuffledPlayers = shuffleArray(players);
-  const matches: Match[] = [];
+const countOccurrences = (
+  matches: Match[],
+  extract: (m: Match) => [string, string][],
+): Map<string, number> => {
+  const counts = new Map<string, number>();
+  for (const m of matches) {
+    for (const [a, b] of extract(m)) {
+      const key = pairKey(a, b);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return counts;
+};
 
-  // Create matches with 4 players each
-  for (let i = 0; i < Math.floor(shuffledPlayers.length / 4); i++) {
-    const matchPlayers = shuffledPlayers.slice(i * 4, (i + 1) * 4);
-    matches.push({
-      id: generateId(),
-      round,
-      court: i + 1,
-      team1: [matchPlayers[0].id, matchPlayers[1].id],
-      team2: [matchPlayers[2].id, matchPlayers[3].id],
-      completed: false,
-    });
+const partnerCounts = (matches: Match[]) =>
+  countOccurrences(matches, m => [m.team1, m.team2]);
+
+const opponentCounts = (matches: Match[]) =>
+  countOccurrences(matches, m => [
+    [m.team1[0], m.team2[0]],
+    [m.team1[0], m.team2[1]],
+    [m.team1[1], m.team2[0]],
+    [m.team1[1], m.team2[1]],
+  ]);
+
+// Greedy pairing with random restarts. For each shuffle, pair players by picking
+// the partner with the lowest prior-partnership count. Keep the lowest-cost result.
+const buildPairs = (
+  playerIds: string[],
+  prior: Map<string, number>,
+  attempts = 400,
+): [string, string][] => {
+  let best: { pairs: [string, string][]; cost: number } | null = null;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const pool = shuffleArray(playerIds);
+    const pairs: [string, string][] = [];
+    let cost = 0;
+
+    while (pool.length >= 2) {
+      const a = pool.shift()!;
+      let bestIdx = 0;
+      let bestCost = Infinity;
+      for (let i = 0; i < pool.length; i++) {
+        const c = prior.get(pairKey(a, pool[i])) ?? 0;
+        if (c < bestCost) {
+          bestCost = c;
+          bestIdx = i;
+        }
+      }
+      const b = pool.splice(bestIdx, 1)[0];
+      pairs.push([a, b]);
+      cost += bestCost;
+    }
+
+    if (!best || cost < best.cost) {
+      best = { pairs, cost };
+      if (cost === 0) break;
+    }
   }
 
-  return matches;
+  return best!.pairs;
+};
+
+// Pair the pairs into matches by minimising opponent-repetition cost.
+const buildMatchups = (
+  pairs: [string, string][],
+  prior: Map<string, number>,
+  attempts = 400,
+): [[string, string], [string, string]][] => {
+  let best: { matchups: [[string, string], [string, string]][]; cost: number } | null = null;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const pool = shuffleArray(pairs);
+    const matchups: [[string, string], [string, string]][] = [];
+    let cost = 0;
+
+    while (pool.length >= 2) {
+      const p1 = pool.shift()!;
+      let bestIdx = 0;
+      let bestCost = Infinity;
+      for (let i = 0; i < pool.length; i++) {
+        const p2 = pool[i];
+        const c =
+          (prior.get(pairKey(p1[0], p2[0])) ?? 0) +
+          (prior.get(pairKey(p1[0], p2[1])) ?? 0) +
+          (prior.get(pairKey(p1[1], p2[0])) ?? 0) +
+          (prior.get(pairKey(p1[1], p2[1])) ?? 0);
+        if (c < bestCost) {
+          bestCost = c;
+          bestIdx = i;
+        }
+      }
+      const p2 = pool.splice(bestIdx, 1)[0];
+      matchups.push([p1, p2]);
+      cost += bestCost;
+    }
+
+    if (!best || cost < best.cost) {
+      best = { matchups, cost };
+      if (cost === 0) break;
+    }
+  }
+
+  return best!.matchups;
+};
+
+// Pick which players sit out this round when the count isn't a multiple of 4.
+// Rotate so everyone sits out roughly the same number of times.
+const selectPlayingPlayers = (players: Player[], previousMatches: Match[]): Player[] => {
+  const groupsOf4 = Math.floor(players.length / 4);
+  const playingCount = groupsOf4 * 4;
+  if (playingCount === players.length) return players;
+
+  const sitOutCount = new Map<string, number>(players.map(p => [p.id, 0]));
+  const rounds = new Set(previousMatches.map(m => m.round));
+  for (const r of rounds) {
+    const playedThisRound = new Set<string>();
+    for (const m of previousMatches) {
+      if (m.round !== r) continue;
+      for (const id of [...m.team1, ...m.team2]) playedThisRound.add(id);
+    }
+    for (const p of players) {
+      if (!playedThisRound.has(p.id)) {
+        sitOutCount.set(p.id, (sitOutCount.get(p.id) ?? 0) + 1);
+      }
+    }
+  }
+
+  // Sit out the players who have sat out the fewest times so far (random tiebreak).
+  const ranked = shuffleArray(players).sort(
+    (a, b) => (sitOutCount.get(a.id) ?? 0) - (sitOutCount.get(b.id) ?? 0),
+  );
+  const sittingOut = new Set(ranked.slice(0, players.length - playingCount).map(p => p.id));
+  return players.filter(p => !sittingOut.has(p.id));
+};
+
+export const generateRoundMatches = (
+  players: Player[],
+  round: number,
+  previousMatches: Match[] = [],
+): Match[] => {
+  const playing = selectPlayingPlayers(players, previousMatches);
+  if (playing.length < 4) return [];
+
+  const pairs = buildPairs(playing.map(p => p.id), partnerCounts(previousMatches));
+  const matchups = buildMatchups(pairs, opponentCounts(previousMatches));
+
+  return matchups.map(([team1, team2], i) => ({
+    id: generateId(),
+    round,
+    court: i + 1,
+    team1,
+    team2,
+    completed: false,
+  }));
 };
 
 
