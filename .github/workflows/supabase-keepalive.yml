@@ -14,18 +14,23 @@ jobs:
     steps:
       - name: Query americanas table
         env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Map the GitHub secrets to the exact VITE_ names your local env uses
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
           set -euo pipefail
+          
+          # Your original script will now work perfectly because these variables exist!
           if [ -z "${VITE_SUPABASE_URL:-}" ] || [ -z "${VITE_SUPABASE_ANON_KEY:-}" ]; then
             echo "Missing SUPABASE_URL or SUPABASE_ANON_KEY env vars"
             exit 1
           fi
+          
           status=$(curl -sS -o /tmp/body -w "%{http_code}" \
             -H "apikey: ${VITE_SUPABASE_ANON_KEY}" \
             -H "Authorization: Bearer ${VITE_SUPABASE_ANON_KEY}" \
             "${VITE_SUPABASE_URL}/rest/v1/americanas?select=id&limit=1")
+          
           echo "HTTP ${status}"
           cat /tmp/body
           echo
