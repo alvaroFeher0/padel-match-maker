@@ -13,6 +13,19 @@ const Index = () => {
   const [view, setView] = useState<AmericanaView>('home');
   const [currentAmericana, setCurrentAmericana] = useState<Americana | null>(null);
   const [currentPlayerId, setCurrentPlayerId] = useState<string>('');
+  const [initialJoinCode, setInitialJoinCode] = useState<string>('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('join');
+    if (code) {
+      setInitialJoinCode(code.toUpperCase());
+      setView('join');
+      const url = new URL(window.location.href);
+      url.searchParams.delete('join');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
 
   useEffect(() => {
     if (!currentAmericana) return;
@@ -109,6 +122,7 @@ const Index = () => {
         {view === 'join' && (
           <JoinView
             key="join"
+            initialCode={initialJoinCode}
             onBack={() => setView('home')}
             onJoined={handleJoined}
           />
@@ -121,6 +135,7 @@ const Index = () => {
             currentPlayerId={currentPlayerId}
             onBack={handleReset}
             onStart={handleStartTournament}
+            onUpdate={handleUpdateAmericana}
           />
         )}
 

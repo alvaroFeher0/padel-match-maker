@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Copy, Play, Users, Crown } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, Copy, Play, Users, Crown, Share2, UserPlus, X } from 'lucide-react';
 import { Americana } from '@/types/americana';
+import { createPlayer, saveAmericana } from '@/lib/americana';
 import { toast } from 'sonner';
 
 interface LobbyViewProps {
@@ -9,15 +12,97 @@ interface LobbyViewProps {
   currentPlayerId: string;
   onBack: () => void;
   onStart: () => void;
+  onUpdate: (americana: Americana) => void;
 }
 
-export const LobbyView = ({ americana, currentPlayerId, onBack, onStart }: LobbyViewProps) => {
+export const LobbyView = ({ americana, currentPlayerId, onBack, onStart, onUpdate }: LobbyViewProps) => {
   const isAdmin = americana.adminId === currentPlayerId;
   const canStart = americana.players.length >= 4 && americana.players.length % 4 === 0;
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const handleAddPlayer = async () => {
+    const name = newPlayerName.trim();
+    if (!name || isAdding) return;
+
+    const duplicate = americana.players.find(
+      p => p.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (duplicate) {
+      toast.error('Nombre ya en uso');
+      return;
+    }
+
+    setIsAdding(true);
+    const player = createPlayer(name);
+    americana.players.push(player);
+
+    try {
+      await saveAmericana(americana);
+      onUpdate({ ...americana });
+      setNewPlayerName('');
+      toast.success(`${name} añadido`);
+    } catch (error) {
+      console.error(error);
+      americana.players.pop();
+      toast.error('No se pudo añadir el jugador');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleRemovePlayer = async (playerId: string) => {
+    if (playerId === americana.adminId) return;
+    const idx = americana.players.findIndex(p => p.id === playerId);
+    if (idx === -1) return;
+
+    setRemovingId(playerId);
+    const [removed] = americana.players.splice(idx, 1);
+
+    try {
+      await saveAmericana(americana);
+      onUpdate({ ...americana });
+      toast.success(`${removed.name} eliminado`);
+    } catch (error) {
+      console.error(error);
+      americana.players.splice(idx, 0, removed);
+      toast.error('No se pudo eliminar el jugador');
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   const copyCode = () => {
     navigator.clipboard.writeText(americana.code);
     toast.success('¡Código copiado!');
+  };
+
+  const buildShareUrl = () =>
+    `${window.location.origin}${window.location.pathname}?join=${americana.code}`;
+
+  const shareLink = async () => {
+    const url = buildShareUrl();
+    const shareData = {
+      title: 'Únete a la Americana',
+      text: `Únete a "${americana.name}" en Padel Americana`,
+      url,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (err) {
+        // user cancelled or share failed — fall through to clipboard
+        if ((err as Error).name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('¡Enlace copiado!');
+    } catch {
+      toast.error('No se pudo copiar el enlace');
+    }
   };
 
   return (
@@ -58,6 +143,14 @@ export const LobbyView = ({ americana, currentPlayerId, onBack, onStart }: Lobby
             <Copy className="w-5 h-5" />
           </Button>
         </div>
+        <Button
+          variant="ghost"
+          onClick={shareLink}
+          className="mt-3 text-primary-foreground hover:bg-white/20 gap-2"
+        >
+          <Share2 className="w-4 h-4" />
+          Compartir enlace
+        </Button>
       </motion.div>
 
       {/* Players list */}
@@ -73,6 +166,29 @@ export const LobbyView = ({ americana, currentPlayerId, onBack, onStart }: Lobby
             Jugadores ({americana.players.length})
           </h2>
         </div>
+
+        {isAdmin && (
+          <div className="flex gap-2 mb-4">
+            <Input
+              placeholder="Añadir jugador por nombre"
+              value={newPlayerName}
+              onChange={(e) => setNewPlayerName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAddPlayer();
+              }}
+              className="h-12 rounded-xl"
+            />
+            <Button
+              variant="default"
+              size="icon"
+              onClick={handleAddPlayer}
+              disabled={!newPlayerName.trim() || isAdding}
+              className="h-12 w-12 rounded-xl shrink-0"
+            >
+              <UserPlus className="w-5 h-5" />
+            </Button>
+          </div>
+        )}
 
         <div className="space-y-3">
           {americana.players.map((player, index) => (
@@ -98,6 +214,18 @@ export const LobbyView = ({ americana, currentPlayerId, onBack, onStart }: Lobby
                 <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
                   Tú
                 </span>
+              )}
+              {isAdmin && player.id !== americana.adminId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRemovePlayer(player.id)}
+                  disabled={removingId === player.id}
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  aria-label={`Eliminar a ${player.name}`}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               )}
             </motion.div>
           ))}

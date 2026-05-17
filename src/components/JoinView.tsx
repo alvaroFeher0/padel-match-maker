@@ -10,10 +10,11 @@ import { toast } from 'sonner';
 interface JoinViewProps {
   onBack: () => void;
   onJoined: (americana: Americana, playerId: string) => void;
+  initialCode?: string;
 }
 
-export const JoinView = ({ onBack, onJoined }: JoinViewProps) => {
-  const [code, setCode] = useState('');
+export const JoinView = ({ onBack, onJoined, initialCode = '' }: JoinViewProps) => {
+  const [code, setCode] = useState(initialCode);
   const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
