@@ -5,9 +5,10 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Set this to your GitHub repository name, e.g., '/my-cool-app/'
-  // If you are using a custom domain on GitHub Pages, set this to '/'
-  base: mode === 'production' ? '/padel-match-maker/' : '/',
+  // Served from the root of the custom domain (padelamericana.com),
+  // so assets live at '/'. (Was '/padel-match-maker/' for the
+  // github.io project-page URL.)
+  base: '/',
   
   server: {
     host: "::",
